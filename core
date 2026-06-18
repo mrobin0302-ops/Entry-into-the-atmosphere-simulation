@@ -1,0 +1,90 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import time
+from odesolve import Rm, t0_sim, tf_sim, h_sim, x0_sim 
+import matplotlib.image as mpimg
+
+def fixedPoint(f, x_init, tol=1e-8, max_iter=1000):
+    x = x_init
+    conv = 1
+    for _ in range(max_iter):
+        x_next = f(x)
+        if np.linalg.norm(x_next - x) < tol:
+            return x_next, conv
+        x = x_next
+    return x, 0
+
+def ODEsolve(f, x0, t0, tf, h, scheme, Jf='none'):
+    N = int(np.ceil((tf - t0) / h))
+    h = (tf - t0) / N
+    T = np.zeros(N + 1)
+    X = np.zeros((len(x0), N + 1))
+    T[0] = t0
+    X[:, 0] = x0
+       
+    for n in range(1, N + 1):
+        T[n] = T[n-1] + h
+        
+        if scheme == "Euler Explicite":
+            X[:, n] = X[:, n-1] + h * f(T[n-1], X[:, n-1])
+            
+        elif scheme == "Runge-Kutta 2":
+            k1 = f(T[n-1], X[:, n-1])
+            k2 = f(T[n-1] + h/2, X[:, n-1] + h/2 * k1)
+            X[:, n] = X[:, n-1] + h * k2
+            
+        elif scheme == "Runge-Kutta 4":
+            k1 = f(T[n-1], X[:, n-1])
+            k2 = f(T[n-1] + h/2, X[:, n-1] + h/2 * k1)
+            k3 = f(T[n-1] + h/2, X[:, n-1] + h/2 * k2)
+            k4 = f(T[n-1] + h, X[:, n-1] + h * k3)
+            X[:, n] = X[:, n-1] + (h / 6) * (k1 + 2*k2 + 2*k3 + k4)
+            
+        elif scheme == "Euler Implicite":
+            g = lambda x : X[:, n-1] + h * f(T[n], x)
+            X[:, n], conv = fixedPoint(g, X[:, n-1])
+            if conv == 0:
+                print(f"Non convergence du point fixe à l'étape {n}")
+                
+        elif scheme == "Crank-Nicholson":
+            g = lambda x : X[:, n-1] + (h / 2) * (f(T[n-1], X[:, n-1]) + f(T[n], x))
+            X[:, n], conv = fixedPoint(g, X[:, n-1])
+            if conv == 0:
+                print(f"Non convergence du point fixe à l'étape {n}")
+        else:
+            print("Ce schéma n'existe pas !")
+            break
+            
+    return T, X
+
+print("Lancement de la simulation de rentrée atmosphérique...")
+T_atm, X_atm = ODEsolve(Rm, x0_sim, t0_sim, tf_sim, h_sim, "Runge-Kutta 4")
+
+print("Affichage du graphique avec le globe Terrestre...")
+
+fig, ax = plt.subplots(figsize=(8, 8)) 
+
+try:
+    img = mpimg.imread('globe.jpg') 
+    
+
+    limite = 6800000 
+    ax.imshow(img, extent=[-limite, limite, -limite, limite], origin='upper')
+
+except FileNotFoundError:
+    print("Attention : Ton fichier image est introuvable. Le graphique sera tracé sans fond.")
+
+plt.plot(X_atm[0, :], X_atm[1, :], label="Trajectoire de la capsule (RK4)", color='cyan', linewidth=2.5)
+
+theta = np.linspace(0, 2*np.pi, 100)
+plt.plot(6371e3 * np.cos(theta), 6371e3 * np.sin(theta), 'w--', alpha=0.5, label="Surface Terrestre")
+
+plt.xlabel("Position X (m)")
+plt.ylabel("Position Y (m)")
+plt.title("Simulation de rentrée atmosphérique")
+plt.legend()
+plt.axis('equal') 
+plt.grid(True, linestyle='--', alpha=0.2)
+
+plt.savefig('graphique_rentree_globe.png')
+plt.show()

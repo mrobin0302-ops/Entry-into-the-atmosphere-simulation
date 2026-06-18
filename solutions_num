@@ -1,0 +1,86 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def euler_explicite(f, x0, t0, tf, h):
+    """
+    Résolution de x' = f(t,x)
+    par le schéma d'Euler explicite.
+    """
+
+    N = int(np.ceil((tf - t0) / h))
+    h = (tf - t0) / N
+
+    T = np.zeros(N + 1)
+    X = np.zeros(N + 1)
+
+    T[0] = t0
+    X[0] = x0
+
+    for n in range(N):
+        T[n + 1] = T[n] + h
+        X[n + 1] = X[n] + h * f(T[n], X[n])
+
+    return T, X
+
+
+erreur = np.max(np.abs(solution_exacte(T) - X))
+print("Erreur =", erreur)
+
+h1 = 0.1
+h2 = h1 / 2
+
+T1, X1 = euler_explicite(f, x0, t0, tf, h1)
+T2, X2 = euler_explicite(f, x0, t0, tf, h2)
+
+err1 = np.max(np.abs(solution_exacte(T1) - X1))
+err2 = np.max(np.abs(solution_exacte(T2) - X2))
+
+print("Erreur h =", h1, ":", err1)
+print("Erreur h =", h2, ":", err2)
+print("Rapport err1/err2 =", err1 / err2)
+
+
+def f_stable(t, x):
+    return -5*x
+
+def solution_stable(t):
+    return np.exp(-5*t)
+
+plt.figure(figsize=(8,5))
+
+for h in [0.5, 0.25, 0.125]:
+    T, X = euler_explicite(f_stable, 1, 0, 3, h)
+    plt.plot(T, X, 'o-', label=f"h={h}")
+
+t = np.linspace(0, 3, 1000)
+plt.plot(t, solution_stable(t), 'k', linewidth=2,
+         label="solution exacte")
+
+plt.legend()
+plt.grid()
+plt.show()
+
+
+
+# Courbe de convergence
+
+H = np.logspace(0, -5, 20)
+E = np.zeros(len(H))
+
+for i, h in enumerate(H):
+    T, X = euler_explicite(f_stable, 1, 0, 3, h)
+    E[i] = np.max(np.abs(solution_stable(T) - X))
+
+plt.figure(figsize=(8,5))
+plt.loglog(H, E, 'o-', label="Erreur Euler")
+
+# droite de pente 1
+plt.loglog(H, E[0]*(H/H[0]), '--', label="Pente 1")
+
+plt.xlabel("h")
+plt.ylabel("Erreur")
+plt.legend()
+plt.grid(True, which="both")
+plt.show()
+
+#
